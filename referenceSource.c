@@ -34,7 +34,6 @@ struct P {
 
 struct P tr[15000] = { 0 };
 
-volatile int trajectory_num = 0;
 volatile int terminateISR = 0;
 
 volatile long encpulse = 0;
@@ -54,7 +53,6 @@ volatile int dcnt = 0;
 volatile float vel;
 
 int Flag;
-
 
 
  void write_file() {
@@ -85,7 +83,6 @@ int Flag;
      }
      fclose(fp);
  }
-
 
 void setup() {
     wiringPiSetupGpio();
@@ -118,10 +115,8 @@ void encAfunc() {
         else { encpulse--; }
     }
     redgearPos = (float)encpulse / POS2ENC;
-    //if(enc_count%8==0){printf("                          current pos: %f\n",redgearPos);}
-    //enc_count++;
-        
 }
+
 void encBfunc() {
     int A = digitalRead(ENCA);
     int B = digitalRead(ENCB);
@@ -149,7 +144,6 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
     error_prev = error;
     prevgearPos = redgearPos;
     enc_count++;
-
 
     if (Flag == 1) {
         if (motor_input > 0) {
@@ -180,10 +174,8 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
         softPwmWrite(MOTOR_1, MAX_INPUT);
         softPwmWrite(MOTOR_2, 0);
     }
-
-    //if (enc_count % 100 == 0) { printf("%d  %d  %d       %f\n", KP, KI, KD, motor_input); }
 }
-//+ trajectory_num + LED
+// drive Motor
 void* driveMotor_thread(void* arg) {
 
     pthread_mutex_lock(&dataMutex);
