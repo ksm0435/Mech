@@ -35,7 +35,6 @@ struct P {
 
 struct P tr[15000] = { 0 };
 
-volatile int trajectory_num = 0;
 volatile int terminateISR = 0;
 
 volatile long encpulse = 0;
