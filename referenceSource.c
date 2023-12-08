@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <wiringPi.h>
 #include <softPwm.h>
@@ -52,6 +53,9 @@ int time_c = 0;
 int time_p = 0;
 volatile int cnt1 = 0;
 volatile int dcnt = 0;
+volatile float vel;
+
+int Flag;
 
 
 
@@ -137,42 +141,50 @@ void encBfunc() {
 
 //PID
 void PIDcontrol(int KP, int KI, int KD, float refpos) {
-    error = refpos - redgearPos;
-    //error_d = - (redgearPos - prevgearPos) / (LOOPTIME * 0.001);    
-    error_d = (error - error_prev) / (LOOPTIME * 0.001);
+    error = refpos - redgearPos;   
+    error_d = (error - error_prev) / (LOOPTIME * 0.001);  //error_d = - (redgearPos - prevgearPos) / (LOOPTIME * 0.001); 
     error_i += (error * (LOOPTIME * 0.001));
 
-    if (error > 0.1 && error < -0.1) {
-        KP = 5000;
-        KI = 5;
-        KD = 10;
-    }
-
     motor_input = KP * error + KD * error_d + KI * error_i;
+    vel = (redgearPos - prevgearPos) / LOOPTIME;
 
     error_prev = error;
     prevgearPos = redgearPos;
     enc_count++;
-    if (motor_input > 0) {
-        if (motor_input > MAX_INPUT) {
-            motor_input = MAX_INPUT;
+
+
+    if (Flag == 1) {
+        if (motor_input > 0) {
+            if (motor_input > MAX_INPUT) {
+                motor_input = MAX_INPUT;
+            }
+            else if (vel < 0.01) {
+                dcnt++;
+                if (dcnt >= 50) Flag = 2;
+            }
+            softPwmWrite(MOTOR_1, 0);
+            softPwmWrite(MOTOR_2, motor_input);
         }
-        softPwmWrite(MOTOR_1, 0);
-        softPwmWrite(MOTOR_2, motor_input);
+        else if (motor_input < 0) {
+            motor_input = motor_input * (-1);
+            if (motor_input > MAX_INPUT) {
+                motor_input = MAX_INPUT;
+            }
+            softPwmWrite(MOTOR_1, motor_input);
+            softPwmWrite(MOTOR_2, 0);
+            else if (vel < 0.01) {
+                dcnt++;
+                if (dcnt >= 50) Flag = 2;
+            }
+        }
     }
-    else {
-        motor_input = motor_input * (-1);
-        if (motor_input > MAX_INPUT) {
-            motor_input = MAX_INPUT;
-        }
-        softPwmWrite(MOTOR_1, motor_input);
+    else if (Flag == 2) {
+        softPwmWrite(MOTOR_1, MAX_INPUT);
         softPwmWrite(MOTOR_2, 0);
     }
+
     //if (enc_count % 100 == 0) { printf("%d  %d  %d       %f\n", KP, KI, KD, motor_input); }
 }
-
-
-
 //+ trajectory_num + LED
 void* driveMotor_thread(void* arg) {
 
@@ -184,10 +196,7 @@ void* driveMotor_thread(void* arg) {
             time_p = time_c;
             PIDcontrol(KP, KI, KD, tr[cnt1].one);
             cnt1++;
-            if (cnt1 % 100 == 0)
-            {
-                printf("%f   %f\n", redgearPos, tr[cnt1].one);
-            }
+            if (cnt1 % 100 == 0) printf("%f   %f\n", redgearPos, tr[cnt1].one);
             if (trajectory_num != 1 || terminateISR) break;
         }
     }
@@ -217,7 +226,7 @@ void var_reset() {
     prevgearPos = 0;
     time_c = 0;
     time_p = 0;
-    terminateISR = 0; //veryveryimp
+    terminateISR = 0;
 }
 
 void traject_memory() {
@@ -227,26 +236,23 @@ void traject_memory() {
     cnt1 = 0;
     trajectory_num = 1;
 
-    digitalWrite(LED_R, LOW);
-    digitalWrite(LED_G, LOW);
-    digitalWrite(LED_Y, HIGH);
+    digitalWrite(LED_R, 0);
+    digitalWrite(LED_G, 0);
+    digitalWrite(LED_Y, 1);
     terminateISR = 0;
-    printf("cnt1=%d", cnt1);
-    printf("Motor stopped!\n");
-    //delay(1000);
-    driveMotor_1();
+
+    write_file();
 
 }
 void traject_follow() {
     printf("reset2 started! %f\n", redgearPos);
 
     var_reset();
-    cnt2 = 0;
     trajectory_num = 2;
 
-    digitalWrite(LED_R, LOW);
-    digitalWrite(LED_G, HIGH);
-    digitalWrite(LED_Y, LOW);
+    digitalWrite(LED_R, 0);
+    digitalWrite(LED_G, 1);
+    digitalWrite(LED_Y, 0);
     terminateISR = 0;
     printf("cnt2=%d", cnt2);
     printf("Motor stopped!\n");
@@ -254,8 +260,6 @@ void traject_follow() {
     driveMotor();
 
 }
-
-
 
 int main() {
 
@@ -271,17 +275,6 @@ int main() {
         printf("error");
         return -1;
     }
-
-    /*
-       for (int i=0; i<2000; i++){
-          traj1[i] = i*1;
-          //printf("%d\n", traj1[i]);
-       }
-       for (int i=0; i<2000; i++){
-          traj2[i] = -i*1;
-          //printf("%d\n", traj2[i]);
-       }
-    */
 
     while (1) {
 
