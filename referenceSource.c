@@ -134,6 +134,8 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
     vel = (redgearPos - prevgearPos) / LOOPTIME; // velocity 계산 -> 외란 시 cnt 판단용
     if (Flag == 1) {
         if (motor_input > 0) {
+            softPwmWrite(MOTOR_1, motor_input);
+            softPwmWrite(MOTOR_2, 0);
             if (motor_input > MAX_INPUT) {
                 motor_input = MAX_INPUT;
             }
@@ -141,16 +143,14 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
                 dcnt++; // velocity가 충분히 낮으면 dcnt++
                 if (dcnt >= 50) Flag = 2;
             }
-            softPwmWrite(MOTOR_1, 0);
-            softPwmWrite(MOTOR_2, motor_input);
         }
         else if (motor_input < 0) {
             motor_input = motor_input * (-1);
             if (motor_input > MAX_INPUT) {
                 motor_input = MAX_INPUT;
             }
-            softPwmWrite(MOTOR_1, motor_input);
-            softPwmWrite(MOTOR_2, 0);
+            softPwmWrite(MOTOR_1, 0);
+            softPwmWrite(MOTOR_2, motor_input);
             else if (vel < 0.01) {
                 dcnt++;
                 if (dcnt >= 50) Flag = 2;
