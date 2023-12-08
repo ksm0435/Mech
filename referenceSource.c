@@ -52,10 +52,7 @@ int time_p = 0;
 volatile int cnt1 = 0;
 volatile int dcnt = 0;
 volatile float vel;
-
 int Flag;
-
-
 
  void write_file() {
      FILE* fp = fopen("follow.csv", "w");
@@ -93,7 +90,6 @@ void setup() {
     pinMode(ENCB, INPUT);
     pinMode(SWITCH_1, INPUT);
     pinMode(SWITCH_2, INPUT);
-
     pinMode(LED_R, OUTPUT);
     pinMode(LED_G, OUTPUT);
     pinMode(LED_Y, OUTPUT);
@@ -144,20 +140,14 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
     error_i += (error * (LOOPTIME * 0.001));
 
     motor_input = KP * error + KD * error_d + KI * error_i;
-    vel = (redgearPos - prevgearPos) / LOOPTIME;
-
-    error_prev = error;
-    prevgearPos = redgearPos;
-    enc_count++;
-
-
+    vel = (redgearPos - prevgearPos) / LOOPTIME; // velocity 계산 -> 외란 시 cnt 판단용
     if (Flag == 1) {
         if (motor_input > 0) {
             if (motor_input > MAX_INPUT) {
                 motor_input = MAX_INPUT;
             }
-            else if (vel < 0.01) {
-                dcnt++;
+            else if (vel < 0.01 || vel > -0.01) {
+                dcnt++; // velocity가 충분히 낮으면 dcnt++
                 if (dcnt >= 50) Flag = 2;
             }
             softPwmWrite(MOTOR_1, 0);
@@ -177,12 +167,23 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
         }
     }
     else if (Flag == 2) {
-        softPwmWrite(MOTOR_1, MAX_INPUT);
+        if(vel>0)
+        softPwmWrite(MOTOR_1, 1);
         softPwmWrite(MOTOR_2, 0);
+        }
+        else{
+        softPwmWrite(MOTOR_1, 0);
+        softPwmWrite(MOTOR_2, 1);
+        }
+            
     }
 
-    //if (enc_count % 100 == 0) { printf("%d  %d  %d       %f\n", KP, KI, KD, motor_input); }
+    error_prev = error;
+    prevgearPos = redgearPos;
+    enc_count++;
 }
+
+
 //+ trajectory_num + LED
 void* driveMotor_thread(void* arg) {
 
@@ -198,6 +199,7 @@ void* driveMotor_thread(void* arg) {
             if (trajectory_num != 1 || terminateISR) break;
         }
     }
+
     softPwmWrite(MOTOR_1, 0);
     softPwmWrite(MOTOR_2, 0);
 
