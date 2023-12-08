@@ -25,7 +25,6 @@
 #define LOOPTIME 1 // (ms)
 #define MAX_INPUT 4000
 
-pthread_t thread1, thread2, thread3;
 pthread_mutex_t dataMutex = PTHREAD_MUTEX_INITIALIZER;
 
 
