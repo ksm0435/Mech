@@ -4,9 +4,6 @@
 #include <pthread.h>
 #include <math.h>
 
-#define FALSE 0
-#define TRUE 1
-
 #define ENCA 24
 #define ENCB 23
 #define SWITCH_1 20
