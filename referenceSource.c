@@ -116,8 +116,6 @@ void encAfunc() {
         else { encpulse--; }
     }
     redgearPos = (float)encpulse / POS2ENC;
-    //if(enc_count%8==0){printf("                          current pos: %f\n",redgearPos);}
-    //enc_count++;
         
 }
 void encBfunc() {
@@ -168,9 +166,8 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
         softPwmWrite(MOTOR_1, motor_input);
         softPwmWrite(MOTOR_2, 0);
     }
-    //if (enc_count % 100 == 0) { printf("%d  %d  %d       %f\n", KP, KI, KD, motor_input); }
 }
-
+o
 
 
 //+ trajectory_num + LED
@@ -226,15 +223,30 @@ void traject_memory() {
     var_reset();
     cnt1 = 0;
     trajectory_num = 1;
-
+    
     digitalWrite(LED_R, LOW);
     digitalWrite(LED_G, LOW);
     digitalWrite(LED_Y, HIGH);
     terminateISR = 0;
     printf("cnt1=%d", cnt1);
     printf("Motor stopped!\n");
-    //delay(1000);
-    driveMotor_1();
+
+    //write file
+    while (cnt1 < 15000 && !terminateISR) {
+        time_c = millis();
+        if (time_c - time_p >= LOOPTIME) {
+            time_p = time_c;
+            
+            cnt1++;
+            tr[cnt1].one = redgearPos;
+            if (cnt1 % 100 == 0)
+            {
+                printf("%f   %f\n", redgearPos, tr[cnt1].one);
+            }
+            if (trajectory_num != 1 || terminateISR) break;
+        }
+    }
+    
 
 }
 void traject_follow() {
