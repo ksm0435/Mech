@@ -24,7 +24,6 @@
 
 pthread_mutex_t dataMutex = PTHREAD_MUTEX_INITIALIZER;
 
-
 struct P {
     float one;
 };
