@@ -230,9 +230,18 @@ void traject_memory() {
     digitalWrite(LED_G, 0);
     digitalWrite(LED_Y, 1);
     terminateISR = 0;
-
+    // read gear position && save to tr[] list && wrtie file
+    while (cnt1 < 15000 && !terminateISR) {
+        time_c = millis();
+        if (time_c - time_p >= LOOPTIME) {
+            time_p = time_c;
+            tr[cnt1].one = redgearPos;
+            cnt1++;
+            if (cnt1 % 100 == 0) printf("%f   %f\n", redgearPos, tr[cnt1].one);
+            if (trajectory_num != 1 || terminateISR) break;
+        }
+    }
     write_file();
-
 }
 void traject_follow() {
     printf("reset2 started! %f\n", redgearPos);
