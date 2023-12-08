@@ -78,7 +78,6 @@ int Flag;
      fclose(fp);
  }
 
-
 void setup() {
     wiringPiSetupGpio();
     pinMode(ENCA, INPUT);
