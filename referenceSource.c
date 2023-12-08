@@ -4,11 +4,8 @@
 #include <pthread.h>
 #include <math.h>
 
-#define FALSE 0
-#define TRUE 1
-
-#define ENCA 24
-#define ENCB 23
+#define ENCA 25
+#define ENCB 18
 #define SWITCH_1 20
 #define SWITCH_2 21
 #define MOTOR_1 19
@@ -17,17 +14,16 @@
 #define LED_G 27
 #define LED_Y 22
 
-#define KP 1000
-#define KI 50
-#define KD 20
+#define PGAIN 200
+#define IGAIN 0
+#define DGAIN 0
 
 #define POS2ENC 236
 #define LOOPTIME 1 // (ms)
-#define MAX_INPUT 4000
+#define MAX_INPUT 100
 
-pthread_t thread1, thread2, thread3;
+pthread_t thread1;
 pthread_mutex_t dataMutex = PTHREAD_MUTEX_INITIALIZER;
-
 
 struct P {
     float one;
@@ -51,8 +47,8 @@ int time_c = 0;
 int time_p = 0;
 volatile int cnt1 = 0;
 volatile int dcnt = 0;
-
-
+volatile float vel;
+int Flag =1;
 
  void write_file() {
      FILE* fp = fopen("follow.csv", "w");
@@ -61,7 +57,7 @@ volatile int dcnt = 0;
          return;
      }
      for (int i = 0; i < 15000; i++) {
-         fprintf(fp, "%f\n", &tr[i].one);
+         fprintf(fp, "%f\n", tr[i].one);
      }
      fclose(fp);
  }
@@ -83,14 +79,12 @@ volatile int dcnt = 0;
      fclose(fp);
  }
 
-
 void setup() {
     wiringPiSetupGpio();
     pinMode(ENCA, INPUT);
     pinMode(ENCB, INPUT);
     pinMode(SWITCH_1, INPUT);
     pinMode(SWITCH_2, INPUT);
-
     pinMode(LED_R, OUTPUT);
     pinMode(LED_G, OUTPUT);
     pinMode(LED_Y, OUTPUT);
@@ -115,7 +109,6 @@ void encAfunc() {
         else { encpulse--; }
     }
     redgearPos = (float)encpulse / POS2ENC;
-        
 }
 void encBfunc() {
     int A = digitalRead(ENCA);
@@ -134,39 +127,74 @@ void encBfunc() {
 
 //PID
 void PIDcontrol(int KP, int KI, int KD, float refpos) {
-    error = refpos - redgearPos;
-    //error_d = - (redgearPos - prevgearPos) / (LOOPTIME * 0.001);    
-    error_d = (error - error_prev) / (LOOPTIME * 0.001);
+    error = refpos - redgearPos;   
+    error_d = (error - error_prev) / (LOOPTIME * 0.001);  //error_d = - (redgearPos - prevgearPos) / (LOOPTIME * 0.001); 
     error_i += (error * (LOOPTIME * 0.001));
 
-    if (error > 0.1 && error < -0.1) {
-        KP = 5000;
-        KI = 5;
-        KD = 10;
-    }
-
     motor_input = KP * error + KD * error_d + KI * error_i;
+    vel = (redgearPos - prevgearPos) / LOOPTIME; // velocity 계산 -> 외란 시 cnt 판단용
+    printf("%d \n",motor_input);
+    if (Flag == 1) {
+        
+        if (motor_input > 0) 
+        {
+            //softPwmWrite(MOTOR_1, motor_input);
+            //softPwmWrite(MOTOR_2, 0);
+            softPwmWrite(MOTOR_1, motor_input);
+            softPwmWrite(MOTOR_2, 0);
+            if (motor_input > MAX_INPUT) 
+            {
+                motor_input = MAX_INPUT;
+            }
+            
+            else if (vel < 0.01 || vel > -0.01) 
+            {
+                dcnt++; // velocity가 충분히 낮으면 dcnt++
+                if (dcnt >= 50) Flag = 2;
+            }
+
+        }
+        else if (motor_input < 0) 
+        {
+            motor_input = motor_input * (-1);
+            softPwmWrite(MOTOR_1, 0);
+            softPwmWrite(MOTOR_2, motor_input);
+            
+            if (motor_input > MAX_INPUT) 
+            {
+                
+                softPwmWrite(MOTOR_1, MAX_INPUT);
+                softPwmWrite(MOTOR_2, 0);
+                
+            }
+            
+            else if (vel < 0.01) 
+            {
+                dcnt++;
+                if (dcnt >= 50) Flag = 2;
+            }
+            
+        }
+        
+    }
+    else if (Flag == 2) 
+    {
+        
+        if(vel>0){
+        softPwmWrite(MOTOR_1, 1);
+        softPwmWrite(MOTOR_2, 0);
+        }
+        else{
+        softPwmWrite(MOTOR_1, 0);
+        softPwmWrite(MOTOR_2, 1);
+        }
+            
+    }
 
     error_prev = error;
     prevgearPos = redgearPos;
     enc_count++;
-    if (motor_input > 0) {
-        if (motor_input > MAX_INPUT) {
-            motor_input = MAX_INPUT;
-        }
-        softPwmWrite(MOTOR_1, 0);
-        softPwmWrite(MOTOR_2, motor_input);
-    }
-    else {
-        motor_input = motor_input * (-1);
-        if (motor_input > MAX_INPUT) {
-            motor_input = MAX_INPUT;
-        }
-        softPwmWrite(MOTOR_1, motor_input);
-        softPwmWrite(MOTOR_2, 0);
-    }
 }
-o
 
 
 //+ trajectory_num + LED
@@ -178,15 +206,13 @@ void* driveMotor_thread(void* arg) {
         time_c = millis();
         if (time_c - time_p >= LOOPTIME) {
             time_p = time_c;
-            PIDcontrol(KP, KI, KD, tr[cnt1].one);
+            PIDcontrol(PGAIN, IGAIN, DGAIN, tr[cnt1].one);
             cnt1++;
-            if (cnt1 % 100 == 0)
-            {
-                printf("%f   %f\n", redgearPos, tr[cnt1].one);
-            }
-            if (trajectory_num != 1 || terminateISR) break;
+            if (cnt1 % 100 == 0) printf("%f   %f\n", redgearPos, tr[cnt1].one);
+            if (terminateISR) break;
         }
     }
+
     softPwmWrite(MOTOR_1, 0);
     softPwmWrite(MOTOR_2, 0);
 
@@ -213,60 +239,53 @@ void var_reset() {
     prevgearPos = 0;
     time_c = 0;
     time_p = 0;
-    terminateISR = 0; //veryveryimp
+    terminateISR = 0;
 }
 
 void traject_memory() {
+    
+    pthread_mutex_lock(&dataMutex);
     printf("reset1 started! %f\n", redgearPos);
 
     var_reset();
     cnt1 = 0;
-    trajectory_num = 1;
-    
-    digitalWrite(LED_R, LOW);
-    digitalWrite(LED_G, LOW);
-    digitalWrite(LED_Y, HIGH);
-    terminateISR = 0;
-    printf("cnt1=%d", cnt1);
-    printf("Motor stopped!\n");
 
-    //write file
+    digitalWrite(LED_R, 0);
+    digitalWrite(LED_G, 0);
+    digitalWrite(LED_Y, 1);
+    terminateISR = 0;
     while (cnt1 < 15000 && !terminateISR) {
         time_c = millis();
         if (time_c - time_p >= LOOPTIME) {
             time_p = time_c;
-            
-            cnt1++;
             tr[cnt1].one = redgearPos;
-            if (cnt1 % 100 == 0)
-            {
-                printf("%f   %f\n", redgearPos, tr[cnt1].one);
-            }
-            if (trajectory_num != 1 || terminateISR) break;
+            cnt1++;
+            if (cnt1 % 100 == 0) printf("%f  %ld %f\n", redgearPos,  encpulse,tr[cnt1].one);
+            if (terminateISR) break;
         }
     }
+    write_file();
+    digitalWrite(LED_R, 0);
+    digitalWrite(LED_G, 0);
+    digitalWrite(LED_Y, 0);
     
+    pthread_mutex_unlock(&dataMutex);
+    pthread_exit(NULL);
 
 }
 void traject_follow() {
     printf("reset2 started! %f\n", redgearPos);
 
     var_reset();
-    cnt2 = 0;
-    trajectory_num = 2;
-
-    digitalWrite(LED_R, LOW);
-    digitalWrite(LED_G, HIGH);
-    digitalWrite(LED_Y, LOW);
+    digitalWrite(LED_R, 0);
+    digitalWrite(LED_G, 1);
+    digitalWrite(LED_Y, 0);
     terminateISR = 0;
-    printf("cnt2=%d", cnt2);
     printf("Motor stopped!\n");
     //delay(1000);
     driveMotor();
 
 }
-
-
 
 int main() {
 
