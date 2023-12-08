@@ -110,9 +110,6 @@ void encAfunc() {
         else { encpulse--; }
     }
     redgearPos = (float)encpulse / POS2ENC;
-    //if(enc_count%8==0){printf("                          current pos: %f\n",redgearPos);}
-    //enc_count++;
-        
 }
 void encBfunc() {
     int A = digitalRead(ENCA);
