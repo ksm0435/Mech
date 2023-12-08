@@ -272,17 +272,6 @@ int main() {
         return -1;
     }
 
-    /*
-       for (int i=0; i<2000; i++){
-          traj1[i] = i*1;
-          //printf("%d\n", traj1[i]);
-       }
-       for (int i=0; i<2000; i++){
-          traj2[i] = -i*1;
-          //printf("%d\n", traj2[i]);
-       }
-    */
-
     while (1) {
 
     }
