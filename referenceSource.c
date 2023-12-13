@@ -16,10 +16,11 @@
 #define LED_Y 22
 
 #define PGAIN 500
-#define IGAIN 0.01
-#define DGAIN 0.1
+#define IGAIN 0.001
+#define DGAIN 1
+#define pass 0.01
 
-#define POS2ENC 236.35
+#define POS2ENC 236
 #define LOOPTIME 5 // (ms)
 #define MAX_INPUT 100
 
@@ -47,6 +48,7 @@ volatile float error_i = 0;
 
 volatile float error_vel = 0;
 volatile float vel;
+volatile float vel_prev = 0;
 
 volatile int motor_input = 0;
 int enc_count = 1;
@@ -141,6 +143,11 @@ void encBfunc() {
     redgearPos = (float)encpulse / POS2ENC;
 }
 
+void lowpass(){
+    vel = pass*vel + (1-pass)*vel_prev;
+    vel_prev = vel;
+}
+
 //PID
 void PIDcontrol(int KP, int KI, int KD, float refpos) {
     error = refpos - redgearPos;   
@@ -151,8 +158,8 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
     
     vel = (redgearPos - prevgearPos) / (LOOPTIME*0.001); // velocity 계산 -> 외란 시 cnt 판단용
     
+    lowpass();
     error_vel = tr[cnt1].vel - vel;
-    
     
     error_prev = error;
     prevgearPos = redgearPos;
@@ -173,18 +180,9 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
             softPwmWrite(MOTOR_1, 0);
             softPwmWrite(MOTOR_2, motor_input);
              */
-            printf("%f   %f\n", redgearPos, refpos);
-            //printf("%f    %f\n", vel, error_vel);
+            //printf("%f   %f\n", redgearPos, refpos);
         
-            
-            if (vel < 0.00001 && vel>-0.00001  && error_vel > 0.001 && error_vel < -0.001)
-            //vel -> inside the range , error_vel -> over certain value
-            {
-                dcnt++; // velocity가 충분히 낮으면 dcnt++
-                printf("%d\n", dcnt);
-                if (dcnt >= 50) Flag = 2;
-            }
-
+        
         }
         else
         {
@@ -199,18 +197,20 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
             }
             softPwmWrite(MOTOR_1, 0);
             softPwmWrite(MOTOR_2, motor_input);
-            printf("%f   %f\n", redgearPos, refpos);
-            //printf("%f   %f\n", vel, error_vel);
-            
-             if (vel < 0.00001 && vel>-0.00001 && error_vel > 0.001 && error_vel < -0.001) 
-            {
-                dcnt++;
-                printf("%d\n", dcnt);
-                if (dcnt >= 50) Flag = 2;
-                
-            }
-            
+            //printf("%f   %f\n", redgearPos, refpos);
         }
+        printf("%f\n", error);
+        
+        
+        if (cnt1>500 && (error > 0.04 || error < -0.04))
+        //vel -> inside the range , error_vel -> over certain value
+        {
+            dcnt++; // velocity가 충분히 낮으면 dcnt++
+            printf("%d\n", dcnt);
+            if (dcnt >= 10) Flag = 2;
+        }
+        else{dcnt=0;}
+
         
     }
     else if (Flag == 2) 
@@ -226,9 +226,6 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
             softPwmWrite(MOTOR_1, 0);
             softPwmWrite(MOTOR_2, 0);
         }
-            
-        
-        }
         else{
             Stop_pos = redgearPos;
             while(redgearPos-Stop_pos>=0.5){
@@ -241,6 +238,8 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
             softPwmWrite(MOTOR_1, 0);
             softPwmWrite(MOTOR_2, 0);
         }
+            
+     }
             
 }
 
