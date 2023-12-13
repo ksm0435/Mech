@@ -245,7 +245,7 @@ void var_reset() {
 void traject_memory() {
     
     pthread_mutex_lock(&dataMutex);
-    printf("reset1 started! %f\n", redgearPos);
+    printf("trajectory memory %f\n", redgearPos);
 
     var_reset();
     cnt1 = 0;
@@ -274,7 +274,7 @@ void traject_memory() {
 
 }
 void traject_follow() {
-    printf("reset2 started! %f\n", redgearPos);
+    printf("trajectory follow %f\n", redgearPos);
 
     var_reset();
     digitalWrite(LED_R, 0);
