@@ -95,7 +95,7 @@ void setup() {
     read_file();
 }
 
-// ENCA,B
+// ENCA, B
 void encAfunc() {
     int A = digitalRead(ENCA);
     int B = digitalRead(ENCB);
