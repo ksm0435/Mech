@@ -134,7 +134,7 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
     motor_input = KP * error + KD * error_d + KI * error_i;
     vel = (redgearPos - prevgearPos) / LOOPTIME; // velocity 계산 -> 외란 시 cnt 판단용
     printf("%d \n",motor_input);
-    if (Flag == 1) {
+    //if (Flag == 1) {
         
         if (motor_input > 0) 
         {
@@ -147,11 +147,11 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
                 motor_input = MAX_INPUT;
             }
             
-            else if (vel < 0.01 || vel > -0.01) 
+            /*else if (vel < 0.01 || vel > -0.01) 
             {
                 dcnt++; // velocity가 충분히 낮으면 dcnt++
                 if (dcnt >= 50) Flag = 2;
-            }
+            }*/
 
         }
         else if (motor_input < 0) 
@@ -168,16 +168,16 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
                 
             }
             
-            else if (vel < 0.01) 
+            /*else if (vel < 0.01) 
             {
                 dcnt++;
                 if (dcnt >= 50) Flag = 2;
-            }
+            }*/
             
         }
         
-    }
-    else if (Flag == 2) 
+    //}
+    /*else if (Flag == 2) 
     {
         
         if(vel>0){
@@ -189,7 +189,7 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
         softPwmWrite(MOTOR_2, 1);
         }
             
-    }
+    }*/
 
     error_prev = error;
     prevgearPos = redgearPos;
@@ -281,7 +281,6 @@ void traject_follow() {
     digitalWrite(LED_G, 1);
     digitalWrite(LED_Y, 0);
     terminateISR = 0;
-    printf("Motor stopped!\n");
     //delay(1000);
     driveMotor();
 
