@@ -18,10 +18,17 @@
 #define LOOPTIME 5 // (ms)
 #define MAX_INPUT 100 // softpwmwrite maximum -> 퍼센트로 생각
 
+// PID Gain
 #define PGAIN 500
 #define IGAIN 0.001
 #define DGAIN 1
-#define pass 0.01
+#define pass 0.01 // low pass filter
+
+// collision detect
+#define col_time 500
+#define col_pos 0.04
+#define col_vel 0.04
+#define col_cnt 10
 
 pthread_t thread1;
 pthread_mutex_t dataMutex = PTHREAD_MUTEX_INITIALIZER;
@@ -56,7 +63,7 @@ int time_c = 0;
 int time_p = 0;
 int Flag = 1;
 volatile int cnt1 = 0;
-volatile int dcnt = 0;
+volatile int cnt2 = 0;
 
 
 void write_file() {
@@ -68,13 +75,11 @@ void write_file() {
     for (int i = 0; i < 15000 / LOOPTIME; i++) {
         fprintf(fp, "%f\n", tr[i].two);
     }
-   
     fclose(fp);
-     printf("write end!\n");
+    printf("write end!\n");
 }
 
 void read_file() {
-
     FILE* fp = fopen("follow.csv", "r");
     if (!fp) {
         printf("wrong input file");
@@ -130,10 +135,10 @@ void var_reset() {
     time_p = 0;
     terminateISR = 0;
     cnt1 = 0;
-    dcnt = 0;
+    cnt2 = 0;
 }
 
-// ENCA,B
+// Encoder A, Encoder B
 void encAfunc() {
     int A = digitalRead(ENCA);
     int B = digitalRead(ENCB);
@@ -148,6 +153,7 @@ void encAfunc() {
     }
     redgearPos = (float)encpulse / POS2ENC;
 }
+
 void encBfunc() {
     int A = digitalRead(ENCA);
     int B = digitalRead(ENCB);
@@ -169,7 +175,7 @@ void lowpass() {
     vel_prev = vel;
 }
 
-//PID
+// PID control
 void PIDcontrol(int KP, int KI, int KD, float refpos) {
     error = refpos - redgearPos;
     error_d = (error - error_prev) / (LOOPTIME * 0.001);  //error_d = - (redgearPos - prevgearPos) / (LOOPTIME * 0.001); 
@@ -186,19 +192,18 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
     error_prev = error;
     prevgearPos = redgearPos;
     enc_count++;
+    
     //printf("%d \n",motor_input);
     printf("motor input :%d Flag: %d Position: %f cnt1 : %d\n",motor_input,Flag, redgearPos,cnt1);
     
-    //Flag => 1 : Normal drive
+    // Flag => 1 : Normal drive
     if (Flag == 1) {
-
         if (motor_input > 0)
         {
             if (motor_input > MAX_INPUT)
             {
                 motor_input = MAX_INPUT;
-            }
-            
+            }            
             softPwmWrite(MOTOR_1, motor_input);
             softPwmWrite(MOTOR_2, 0); // Counterclockwise -> motor 1 only
         }
@@ -210,19 +215,18 @@ void PIDcontrol(int KP, int KI, int KD, float refpos) {
             {
                 motor_input = MAX_INPUT;
             }
-            
             softPwmWrite(MOTOR_1, 0);
             softPwmWrite(MOTOR_2, motor_input); // Clockwise
         }
-
-        if (cnt1 > 500 && (error > 0.04|| error < -0.04) && (vel < 0.04 && vel > -0.04))
+        // 
+        if (cnt1 > col_time && (error > col_pos|| error < -col_pos) && (vel < col_vel && vel > -col_vel))
             //vel -> inside the range , error_vel -> over certain value
         {
-            dcnt++; 
-            printf("%d\n", dcnt);
-            if (dcnt >= 10) Flag = 2;
+            cnt2++; 
+            printf("%d\n", cnt2);
+            if (cnt2 >= col_cnt) Flag = 2;
         }
-        else { dcnt = 0; }
+        else { cnt2 = 0; }
 
 
     }
